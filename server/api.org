@@ -1,0 +1,33 @@
+* APIS:     :verb:
+template http://localhost:1235
+
+** manual-trade get
+get /manual-trade
+** manual-trade post
+post /manual-trade
+Content-Type: application/json
+
+{
+    "ticker": "IBIT",
+    "date": "2010/10/20",
+    "price": "10.31",
+    "quantity": "89",
+    "action": "Buy"
+}
+
+* Wisp   :verb:
+** hello world
+get http://localhost:1234/
+** upload files
+:properties:
+:Verb-Map-Request: verb-body-lf-to-crlf
+:end:
+
+post http://localhost:1234/
+Content-Type: multipart/form-data; boundary={{(verb-boundary)}}
+
+{{(verb-part "file" "2024.mp4")}}
+Content-Type: text/plain
+
+{{(verb-read-file "/home/daisy/Videos/20240615_141541.mp4")}}
+{{(verb-part)}}
