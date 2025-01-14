@@ -10,21 +10,31 @@ import gleam/list
 import gleam/string
 import gleam/uri
 
-pub fn string_to_date(date: String) -> Option(types.Date) {
+pub fn date_to_string(date: types.Date) -> String {
+  let two_digits = fn(num: Int) -> String {
+    bool.guard(num <= 9, "0", fn(){""}) <> int.to_string(num)
+  }
+  case date {
+    types.InvalidDate -> "Invalid Date"
+    types.Date(year,month,day) -> [year, month, day] |> list.map(two_digits(_)) |> string.join("-")
+  }
+}
+
+pub fn string_to_date(date: String) -> types.Date {
   let dt = string.trim(date)
   let check_date = fn(split_char) {
     case string.split(dt, split_char) |> list.map(string.trim) {
       [y,m,d] -> case int.parse(y), int.parse(m), int.parse(d) {
         Ok(yy),Ok(mm),Ok(dd) -> {
-        bool.guard(is_valid_date(yy,mm,dd), Some(types.Date(year: yy, month:mm, day: dd)), fn(){None})
+        bool.guard(is_valid_date(yy,mm,dd), types.Date(year: yy, month:mm, day: dd), fn(){types.InvalidDate})
         }
-        _,_,_ -> None
+        _,_,_ -> types.InvalidDate
       }
-      _ -> None
+      _ -> types.InvalidDate
     }
   }
   let dash = check_date("-")
-  bool.guard(dash == None, check_date("/"), fn(){dash})
+  bool.guard(dash == types.InvalidDate, check_date("/"), fn(){dash})
 }
 
 pub fn string_to_positive_float(num_string: String) -> Option(Float) {
@@ -94,12 +104,17 @@ pub fn create_uri(base: String, suffix: Option(String), query_params: List(#(Str
 }
 
 @external(erlang, "erlang_utils", "join_paths")
-//@external(javascript, "js_utils", "join_paths")
+@external(javascript, "../js_utils.mjs", "join_paths")
 pub fn join_paths(paths: List(String)) -> String
 
 @external(erlang, "erlang_utils", "validate_date")
-// @external(javascript, "js_utils", "validate_date")
+@external(javascript, "../js_utils.mjs", "validate_date")
 pub fn is_valid_date(year: Int, month: Int, day: Int) -> Bool
+
+@external(erlang, "erlang_utils", "full_url")
+@external(javascript, "../js_utils.mjs", "full_url")
+pub fn full_url(path: String) -> String
 
 @external(erlang, "erlang_utils", "replace_re_with")
 pub fn replace_re_with(target: String, re: String, replacement: String) -> Result(String, String)
+

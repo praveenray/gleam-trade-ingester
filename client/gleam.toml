@@ -20,6 +20,7 @@ lustre_http = ">= 0.6.0 and < 1.0.0"
 gleam_json = ">= 2.1.0 and < 3.0.0"
 plinth = ">= 0.5.5 and < 1.0.0"
 shared = {path = "../shared"}
+lustre_ui = "1.0.0-rc.1"
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"

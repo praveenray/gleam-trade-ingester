@@ -1,3 +1,5 @@
+import gleam/int
+import gleam/string
 import gleam/list
 import gleam/option.{type Option, Some, None}
 import gleam/json

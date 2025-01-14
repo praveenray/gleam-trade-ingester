@@ -94,8 +94,8 @@ pub fn validate_date(state: types.RawTrade) -> types.RawTrade {
   let dt = string.trim(state.date)
   let date_rec = types.RawTrade(..state, date: dt)
   case utils.string_to_date(dt) {
-    Some(_) -> types.RawTrade(..date_rec, date_error: None)
-    None -> types.RawTrade(..date_rec, date_error: Some("Invalid Date"))
+    types.InvalidDate -> types.RawTrade(..date_rec, date_error: Some("Invalid Date"))
+    _ -> types.RawTrade(..date_rec, date_error: None)
   }
 }
 

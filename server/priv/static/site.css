@@ -1,0 +1,30 @@
+.horizontally-center {
+    display: flex;
+    justify-content: center;
+}
+
+.horizontally-right {
+    display: flex;
+    justify-content: flex-end;
+}
+
+
+.vertically-center {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.success-msg {
+    color: green;
+}
+
+.error-msg {
+    color: red;
+}

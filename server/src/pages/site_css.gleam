@@ -1,0 +1,6 @@
+pub const horizontally_center = "horizontally-center"
+pub const horizontally_right = "horizontally-right"
+pub const vertically_center = "vertically-center"
+pub const center = "center"
+pub const success_msg = "success-msg"
+pub const error_msg = "error-msg"

@@ -37,6 +37,16 @@ pub fn new_trade() -> Trade {
   )
 }
 
+pub fn trade_keys() -> List(String) {
+  [
+    "action",
+    "price",
+    "quantity",
+    "run date",
+    "symbol",
+  ]
+}
+
 pub type FileLoadResult {
   FileLoadResult(
     file_name: String,

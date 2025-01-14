@@ -9,6 +9,21 @@ import gleam/io
 import gleam/dict.{type Dict}
 import gleam/dynamic.{type Dynamic}
 
+pub type SortOrder {
+  Asc
+  Desc
+}
+pub type Sort {
+  Sort(direction: SortOrder, key: String)
+}
+pub fn new_sort() {
+  Sort(direction: Asc, key: "symbol")
+}
+pub type Pagination {
+    Pagination(start: Int, page_size: Int)
+}
+pub fn new_pagination() { Pagination(start:1, page_size: 100) }
+
 pub type TickerAggregate {
   TickerAggregate(
     ticker: String,
@@ -47,39 +62,34 @@ pub fn profit_loss_by_tickers(trades_table: Reference) -> List(TickerAggregate) 
   all_trades(trades_table, 100, dict.new(), fn(list, aggregate) {
     aggregate_tickers(list, aggregate)
   })
-  |> dict.values() |> list.sort(fn(a,b) { string.compare(a.ticker,b.ticker) })
+  |> dict.values() |> list.sort(fn(a,b) { string.compare(a.ticker, b.ticker) })
 }
 
-pub fn all_trades(trades_table: Reference, limit: Int, context: a, callback: fn(List(trade_types.Trade), a) -> a) -> a {
-  all_transactions(trades_table, limit) |> process_matched_trades_result(callback, context)
+pub fn all_trades(trades_table: Reference, _limit: Int, context: a, callback: fn(List(trade_types.Trade), a) -> a) -> a {
+  let sort = Sort(Asc, "_none")
+  let page = Pagination(-1, -1)
+  let #(results_list, _) = all_transactions(trades_table, sort, page)
+  results_list |> process_matched_trades_result(callback, context)
 }
+@external(erlang, "query_erlang", "sorter")
+pub fn sorter(sort: Sort, page: Pagination) -> List(String)
 
 @external(erlang, "query_erlang", "all_transactions")
-pub fn all_transactions(trades_table: Reference, limit: Int) -> Result(#(List(trade_types.Trade), Dynamic), String)
+pub fn all_transactions(
+  trades_table: Reference,
+  sort: Sort,
+  pagination: Pagination
+) -> #(List(trade_types.Trade), Int)
 
 /////
 fn process_matched_trades_result(
-  result: Result(#(List(trade_types.Trade), Dynamic), String),
+  result: List(trade_types.Trade),
   callback: fn(List(trade_types.Trade), a) -> a,
   context: a
 ) -> a {
-  let end_of_table = "end_of_table"
   case result {
-    Ok(#([],_)) -> context
-    Ok(#(trades, eot)) -> {
-      case dynamic.string(eot) {
-        Ok(e) if e == end_of_table -> callback(trades, context)
-        Ok(_) -> panic as "Must not happen"
-        Error(_) -> {
-          io.debug(eot)
-          let context = callback(trades, context)
-          all_transactions_more(eot)
-          |> process_matched_trades_result(callback, context)
-        }
-      }
-    }
-    Error(eot) if eot == end_of_table -> context
-    _ -> panic as "Must not happen with Error"
+    [] -> context
+    _ -> callback(result, context)
   }
 }
 

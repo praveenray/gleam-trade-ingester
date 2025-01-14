@@ -1,3 +1,4 @@
+import gleam/dynamic
 import pages/query/query
 import gleam/erlang.{type Reference}
 import pages/home/home
@@ -9,8 +10,8 @@ import wisp.{type Request, type Response}
 import gleam/http
 import gleam/io
 import gleam/otp/supervisor as sup
+import gleam/otp/actor
 import gleam/erlang/process
-import gleam/json
 import trades/writer_actor
 import globals
 import shared/utils
@@ -24,6 +25,7 @@ pub const ets_trades_table = "trades"
 pub const ets_trades_file = "trades.ets"
 
 pub fn main() {
+
   wisp.configure_logger()
   let assert Ok(global_table) = globals.create_ets_table(ets_table_name)
   let assert Ok(trades_table) = globals.ets_table_from_file(ets_trades_file, ets_trades_table)
@@ -32,6 +34,20 @@ pub fn main() {
     writer_actor.start_actor(global_table, trades_table)
   })
 
+  let mist_worker = sup.worker(fn(_) {
+    case wisp_mist.handler(fn(r) {
+      my_handler(r, global_table, trades_table, ets_trades_file)
+    } , "secret-key")
+    |> mist.new()
+    |> mist.bind("0.0.0.0")
+    |> mist.port(8080)
+    |> mist.start_http() {
+      Ok(s) -> Ok(s)
+      Error(_) -> Error(actor.InitCrashed(dynamic.from("Failed")))
+    }
+  })
+
+
   let spec = sup.Spec(
     argument: Nil,
     max_frequency: 100,
@@ -39,17 +55,11 @@ pub fn main() {
     init: fn(children) {
       children
       |> sup.add(loader_worker)
+      |> sup.add(mist_worker)
     }
   )
 
   let assert Ok(_) = sup.start_spec(spec)
-
-  let assert Ok(_) = wisp_mist.handler(fn(r) {
-    my_handler(r, global_table, trades_table, ets_trades_file)
-  } , "secret-key")
-  |> mist.new()
-  |> mist.port(1235)
-  |> mist.start_http()
 
   process.sleep_forever()
 }

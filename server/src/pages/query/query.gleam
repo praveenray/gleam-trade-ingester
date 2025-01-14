@@ -10,22 +10,26 @@ import lustre/element/html.{div,text}
 import lustre/element.{type Element}
 import layouts/top_across_menu as layout
 import pages/render_utils
+import pages/query/all_transactions
+import pages/query/profit_loss
+import pages/site_css
 import trades/data_types as trade_types
 import gleam/list
 import gleam/option.{type Option, Some, None}
 import query/query
+import lustre/ui/card
+import lustre/ui/input
+import lustre/ui/button
 
 pub const path_prefix = "query"
 const transactions_by_ticker = "transactions-by-ticker"
 const pl_by_ticker = "pl-by-ticker"
-const all_transactions = "all-transactions"
-const pl_summary = "profit-loss-summary"
 
 pub fn accept(r: Request, trades_table: Reference) -> Response {
   case r.method {
     http.Get -> case wisp.path_segments(r) {
-      [_,s] if s == all_transactions -> call_all_transactions(trades_table)
-      [_,s] if s == pl_summary -> call_profit_loss_summary(trades_table)
+      [_,s,..] if s == all_transactions.path_prefix -> all_transactions.accept(r, trades_table, path_prefix)
+      [_,s] if s == profit_loss.path_prefix -> profit_loss.accept(r, trades_table)
       _ -> index(r)
     }
     http.Post -> case wisp.path_segments(r) {
@@ -42,6 +46,7 @@ fn index(r: Request) -> Response {
   let page = layout.layout(
     mjs_path: None,
     init_json: None,
+    add_lustre_ui: True,
     body: body(),
   )
   render_utils.send_element(page, 200)
@@ -50,45 +55,74 @@ fn index(r: Request) -> Response {
 fn body() -> Element(a) {
   let assert Ok(transactions_ticker_uri) = utils.create_uri(path_prefix, Some(transactions_by_ticker), [])
   let assert Ok(pl_ticker_uri) = utils.create_uri(path_prefix, Some(pl_by_ticker), [])
-  let assert Ok(all_transactions_uri) = utils.create_uri(path_prefix, Some(all_transactions), [])
-  let assert Ok(pl_summary_uri) = utils.create_uri(path_prefix, Some(pl_summary), [])
-
-  div([], [
-    html.form([
-      a.action(transactions_ticker_uri),
-      a.method("post"),
-    ],[
-      html.input([
-        a.name("ticker"),
-        a.placeholder("Ticker"),
-        a.max("10"),
-        a.min("1")
-      ]),
-      html.input([a.type_("submit"), a.value("Find Transactions")])
-    ]),
-    html.form([
-      a.action(pl_ticker_uri),
-      a.method("post"),
-    ],[
-      html.input([
-        a.name("ticker"),
-        a.placeholder("Ticker"),
-        a.max("10"),
-        a.min("1")
-      ]),
-      html.input([a.type_("submit"), a.value("Compute Profit/Loss")])
-    ]),
-    html.a([a.href(all_transactions_uri)],[text("All Transactions")]),
-    html.br([]),
-    html.a([a.href(pl_summary_uri)],[text("Profit/Loss Summary")]),
-  ])
-}
-
-fn call_all_transactions(trades_table: Reference) -> Response {
-  case query.all_transactions(trades_table, 100) {
-    Ok(#(list,_)) -> display_transactions(list, None)
-    Error(e) -> display_transactions([], Some(e))
+  let assert Ok(all_transactions_uri) = utils.create_uri(path_prefix, Some(all_transactions.path_prefix), [])
+  let assert Ok(pl_summary_uri) = utils.create_uri(path_prefix, Some(profit_loss.path_prefix), [])
+  let submit_btn = fn(btn_text) {
+    button.button([a.style([#("width", "160px")]), a.type_("submit")], [text(btn_text)])
   }
+
+  let ticker_box = input.input([
+    a.name("ticker"),
+    a.placeholder("Ticker"),
+    a.max("10"),
+    a.min("1")
+  ])
+
+  let form_params = fn(url) {
+    [
+      a.class(site_css.horizontally_center),
+      a.style([
+        #("gap", "10px"),
+      ]),
+      a.action(url),
+      a.method("post")
+    ]
+  }
+
+  let right_aligned = fn(title, url) {
+    div([
+      a.style([
+        #("display","flex"),
+        #("justify-content","flex-end"),
+        #("width", "100%"),
+      ])
+    ], [
+      button.button([],[
+        html.a([a.href(url)],[text(title)])
+      ])
+    ])
+  }
+
+  div([
+    a.class(site_css.center)
+  ], [
+    div([
+      a.class(site_css.vertically_center)
+    ],[
+      html.a([a.href("/home")],[text("Home")]),
+      card.card([],[
+        card.content([
+          a.style([
+            #("align-items","flex-start"),
+            #("display","flex"),
+            #("gap", "10px"),
+            #("flex-direction","column"),
+          ])
+        ],[
+          html.form(form_params(transactions_ticker_uri),[
+            ticker_box,
+            submit_btn("Find Transactions"),
+          ]),
+          html.form(form_params(pl_ticker_uri),[
+            ticker_box,
+            submit_btn("Compute Profit/Loss"),
+          ]),
+          right_aligned("All Transactions", all_transactions_uri),
+          right_aligned("Profit/Loss Summary", pl_summary_uri),
+        ])
+      ])
+    ])
+  ])
 }
 
 fn call_profit_loss_summary(trades_table: Reference) -> Response {
@@ -106,6 +140,7 @@ fn call_profit_loss_summary(trades_table: Reference) -> Response {
   let page = layout.layout(
     mjs_path: None,
     init_json: None,
+    add_lustre_ui: True,
     body: div([],[
       html.h4([],[text("Profit/Loss Summary ")]),
       html.table([a.attribute("border","1")],[
@@ -140,11 +175,9 @@ fn call_pl_by_ticker(ticker: String, trades_table: Reference) -> Response {
 }
 
 fn display_pl_ticker(ticker: String, pl: Float, error: Option(String)) -> Response {
-  let page = layout.layout(
-    mjs_path: None,
-    init_json: None,
+  let page = layout.simple_layout(
     body: div([],[
-      show_error(error),
+      render_utils.show_error(error),
       html.h4([],[text("Profit/Loss for " <> ticker)]),
       html.h5([],[text(pl |> float.to_precision(2) |> float.to_string())])
     ])
@@ -169,8 +202,9 @@ fn display_transactions(list: List(trade_types.Trade), error: Option(String)) ->
   let page = layout.layout(
     mjs_path: None,
     init_json: None,
+    add_lustre_ui: True,
     body: div([],[
-      show_error(error),
+      render_utils.show_error(error),
       html.h4([], [text("Transactions By Ticker")]),
       html.table([a.attribute("border","1")],[
         html.tr([], [
@@ -202,12 +236,5 @@ fn form_ticker(form: wisp.FormData) -> Option(String) {
   }) {
     Ok(#(_,value)) -> Some(value)
     _ -> None
-  }
-}
-
-fn show_error(error: Option(String)) -> Element(a) {
-  case error {
-    Some(msg) -> html.span([a.style([#("color","red")])],[text(msg)])
-    None -> html.span([],[])
   }
 }

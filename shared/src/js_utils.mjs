@@ -9,3 +9,7 @@ export function validate_date(year,month,day) {
 export function join_paths(parts) {
      return parts.join("/")  ;
 }
+export function full_url(path) {
+    path = path.replace(/^\//, "");
+    return window.location.origin + "/" + path;
+}

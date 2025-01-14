@@ -3,7 +3,8 @@
 -export([
          replace_re_with/3,
          validate_date/3,
-         join_paths/1
+         join_paths/1,
+         full_url/1
 ]).
 
 validate_date(Y,M,D) when is_integer(Y), is_integer(M), is_integer(D) ->
@@ -21,3 +22,9 @@ replace_re_with(String, REString, Replacement) when is_binary(String), is_binary
         {ok, list_to_binary(Result)};
       _ -> {error, list_to_binary(io_lib:format("Invalid Regular expression: ~s", [REString]))}
     end.
+
+full_url(Path) ->
+    {ok, Host} = inet:gethostname(),
+    {ok, Pattern} = re:compile("^/"),
+    PathNoPrefix = re:replace(Path, Pattern, "", [{return, binary}]),
+    list_to_binary(io_lib:format("http://~s/~s", [Host, PathNoPrefix])).
